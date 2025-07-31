@@ -105,3 +105,7 @@ MODEL_PATH = "models/"    # Directory to save/load models
 LOAD_MODEL = True        # Set to True to load a pre-trained model
 MODEL_TO_LOAD_P1 = "models/agent1_episode_300.pth" # Example path
 MODEL_TO_LOAD_P2 = "models/agent2_episode_300.pth" # Example path
+# V-trace / Actor-Critic Settings
+ENTROPY_BETA = 0.01
+VTRACE_RHO_CLIP = 1.0
+VTRACE_C_CLIP = 1.0

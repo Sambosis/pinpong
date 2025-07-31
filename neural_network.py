@@ -68,3 +68,20 @@ class DQN(nn.Module):
         q_values = self.fc3(x)
         
         return q_values
+
+class ActorCriticNet(nn.Module):
+    """Simple actor-critic network producing policy logits and state value."""
+    def __init__(self, state_size: int, action_size: int):
+        super().__init__()
+        self.fc1 = nn.Linear(state_size, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.policy_head = nn.Linear(128, action_size)
+        self.value_head = nn.Linear(128, 1)
+
+    def forward(self, state: torch.Tensor):
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        logits = self.policy_head(x)
+        value = self.value_head(x)
+        return logits, value
+

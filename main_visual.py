@@ -1,4 +1,3 @@
-from calendar import c
 import pygame
 import sys
 import os
@@ -7,15 +6,13 @@ import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
-from rich.layout import Layout
-from rich.live import Live
-from rich import print as rprint
+
 
 import config
 from ball import Ball
 from paddle import Paddle
 from agent import Agent
+from vtrace_agent import VTraceAgent
 
 
 def main():
@@ -34,7 +31,7 @@ def main():
 
     console.print(Panel.fit("🤖 Creating RL agents...", style="bold blue"))
     agent1 = Agent(agent_id='agent1')
-    agent2 = Agent(agent_id='agent2')
+    agent2 = VTraceAgent(agent_id='agent2')
 
     # Load pre-trained models if enabled
     if config.LOAD_MODEL:
