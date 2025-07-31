@@ -37,7 +37,7 @@ FIXED_TIMESTEP = 1.0 / 50.0  # Timestep for physics updates, independent of FPS
 # ---------------------------- #
 PADDLE_WIDTH = 15
 PADDLE_HEIGHT = 100
-PADDLE_SPEED = 14.0
+PADDLE_SPEED = 8.0
 PADDLE_WALL_OFFSET = 20  # Distance from the side walls
 
 # Flipper/Swing Mechanics
