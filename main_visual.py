@@ -359,6 +359,39 @@ def main():
                 pygame.display.flip()
                 clock.tick(config.FPS)  # 60 FPS
 
+        # Check if episode ended due to timeout (no winner)
+        if step_count >= config.MAX_STEPS_PER_EPISODE and not episode_over:
+            # Both players get penalty for timeout
+            timeout_reward1 = config.REWARD_GAME_LOSE
+            timeout_reward2 = config.REWARD_GAME_LOSE
+            
+            # Accumulate timeout penalties
+            total_reward_p1 += timeout_reward1
+            total_reward_p2 += timeout_reward2
+            
+            # Create final experience for timeout
+            final_next_state = np.array([
+                ball.rect.centerx / config.SCREEN_WIDTH,
+                ball.rect.centery / config.SCREEN_HEIGHT,
+                np.clip(ball.vx / config.BALL_MAX_SPEED, -1, 1),
+                np.clip(ball.vy / config.BALL_MAX_SPEED, -1, 1),
+                paddle1.rect.centery / config.SCREEN_HEIGHT,
+                paddle2.rect.centery / config.SCREEN_HEIGHT,
+                paddle1.swing_timer / config.PADDLE_SWING_DURATION if paddle1.swing_timer > 0 else 0,
+                paddle2.swing_timer / config.PADDLE_SWING_DURATION if paddle2.swing_timer > 0 else 0
+            ], dtype=np.float32)
+            
+            # Store timeout experiences
+            agent1.remember(state, action1, timeout_reward1, final_next_state, True)  # done=True for timeout
+            agent2.remember(state, action2, timeout_reward2, final_next_state, True)  # done=True for timeout
+            
+            # Learn from timeout experience
+            agent1.learn()
+            agent2.learn()
+            
+            if should_render:
+                console.print(f"[bold red]⏰ Episode {episode} timed out after {step_count} steps - both players penalized[/bold red]")
+
         # Post-episode processing
         agent1.decay_epsilon()
         agent2.decay_epsilon()
