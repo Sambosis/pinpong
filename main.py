@@ -8,6 +8,7 @@ import numpy as np
 import config
 from game import PongGame  
 from agent import Agent
+from vtrace_agent import VTraceAgent
 
 
 def main():
@@ -25,7 +26,7 @@ def main():
 
     # Create the game environment and the two competing agents
     agent1 = Agent(agent_id='agent1')
-    agent2 = Agent(agent_id='agent2')
+    agent2 = VTraceAgent(agent_id='agent2')
 
     # Ensure the directory for saving models exists
     if not os.path.exists(config.MODEL_PATH):
