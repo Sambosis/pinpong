@@ -40,7 +40,7 @@ class VTraceAgent:
         dist = torch.distributions.Categorical(probs)
         if random.random() < self.epsilon:
             action = random.randrange(self.action_size)
-            log_prob = float(np.log(1.0 / self.action_size))
+            log_prob = float(torch.log(torch.tensor(1.0 / self.action_size)))
         else:
             action = dist.sample().item()
             log_prob = dist.log_prob(torch.tensor(action, device=device)).item()
@@ -77,11 +77,18 @@ class VTraceAgent:
         rho_bar = torch.clamp(rho, max=config.VTRACE_RHO_CLIP)
         c = torch.clamp(rho, max=config.VTRACE_C_CLIP)
 
-        deltas = rho_bar * (rewards + config.GAMMA * next_values * (1 - dones) - values)
+        # Calculate 1-step temporal difference error
+        td_error = rewards + config.GAMMA * next_values * (1 - dones) - values
+
+        # V-trace value target uses rho_bar clipped importance ratios
+        deltas = rho_bar * td_error
         value_targets = values + deltas
 
         value_loss = (value_targets.detach() - values).pow(2).mean()
-        policy_loss = -(c.detach() * action_log_probs * deltas.detach()).mean()
+
+        # V-trace policy gradient advantage uses c clipped importance ratios
+        pg_advantage = (c * td_error).detach()
+        policy_loss = -(action_log_probs * pg_advantage).mean()
         policy_loss -= config.ENTROPY_BETA * entropy
 
         loss = policy_loss + 0.5 * value_loss

@@ -318,15 +318,6 @@ def main():
                 screen.blit(step_text, (10, info_y))
                 info_y += 22
 
-                ball_text = small_font.render(f"Ball: ({ball.x:.0f},{ball.y:.0f}) vel=({ball.vx:.1f},{ball.vy:.1f})", True, config.WHITE)
-                screen.blit(ball_text, (10, info_y))
-                info_y += 22
-
-                # Add velocity magnitude and vertical ratio info
-                velocity_magnitude = (ball.vx**2 + ball.vy**2)**0.5
-                velocity_text = small_font.render(f"Velocity: |vx|={abs(ball.vx):.1f}, |vy|={abs(ball.vy):.1f}, mag={velocity_magnitude:.1f}", True, config.WHITE)
-                screen.blit(velocity_text, (10, info_y))
-                info_y += 22
 
                 # Calculate and display vertical ratio (same logic as in ball.py)
                 abs_vx = abs(ball.vx)
@@ -357,11 +348,11 @@ def main():
 
                 # Action display
                 action_names = ["STAY", "UP", "DOWN", "SWING"]
-                action1_text = small_font.render(f"P1: {action_names[action1]}", True, config.WHITE)
-                screen.blit(action1_text, (10, config.SCREEN_HEIGHT - 60))
+                # action1_text = small_font.render(f"P1: {action_names[action1]}", True, config.WHITE)
+                # screen.blit(action1_text, (10, config.SCREEN_HEIGHT - 60))
 
-                action2_text = small_font.render(f"P2: {action_names[action2]}", True, config.WHITE)
-                screen.blit(action2_text, (10, config.SCREEN_HEIGHT - 40))
+                # action2_text = small_font.render(f"P2: {action_names[action2]}", True, config.WHITE)
+                # screen.blit(action2_text, (10, config.SCREEN_HEIGHT - 40))
                 
 
 
