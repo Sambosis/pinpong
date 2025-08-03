@@ -6,6 +6,10 @@ import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+import imageio
+import pygame
+import numpy as np
+import os
 
 
 import config
@@ -13,6 +17,55 @@ from ball import Ball
 from paddle import Paddle
 from agent import Agent
 from vtrace_agent import VTraceAgent
+
+
+class Recorder:
+    def __init__(self, path, fps=30):
+        self.writer = imageio.get_writer(path, fps=(1/config.FIXED_TIMESTEP))
+
+    def capture(self, screen):
+        arr = pygame.surfarray.array3d(screen)
+        frame = np.transpose(arr, (1, 0, 2))  # Convert (W, H, C) -> (H, W, C)
+        self.writer.append_data(frame)
+
+    def close(self):
+        self.writer.close()
+
+
+def create_episode_summary_table(episode, step_count, hits_p1, hits_p2, swings_p1, swings_p2, 
+                                total_reward_p1, total_reward_p2, total_wins_p1, total_wins_p2, 
+                                cumulative_total_avg_reward, episode_result=None):
+    """
+    Create and return an episode summary table.
+    
+    Args:
+        episode_result: Optional string to indicate special episode endings (e.g., "TIMEOUT")
+    """
+    total_hits = hits_p1 + hits_p2
+    total_swings = swings_p1 + swings_p2
+
+    summary_table = Table(show_header=False, box=None, padding=(0, 1))
+    summary_table.add_column("", style="cyan")
+    summary_table.add_column("", style="white")
+
+    # Add episode result row if specified
+    if episode_result:
+        if episode_result == "TIMEOUT":
+            summary_table.add_row("⏰ Episode Result", "[red]TIMEOUT - No Winner[/red]")
+        else:
+            summary_table.add_row("🏆 Episode Result", episode_result)
+
+    summary_table.add_row("🥊 Swing %", f"{total_swings / (step_count * 2) * 100:.3f}%")
+    summary_table.add_row("🏓 Hits", f"{total_hits}")
+    summary_table.add_row("🏓 Swings", f"{total_swings}")
+    summary_table.add_row("📈 P1 Reward", f"{total_reward_p1:.3f}")
+    summary_table.add_row(
+        "📈 P2 Reward", 
+        f"{total_reward_p2:.3f}"
+    )
+    summary_table.add_row("🏆 Total Wins", f"P1: {total_wins_p1} | P2: {total_wins_p2}")
+
+    return summary_table
 
 
 def main():
@@ -86,6 +139,8 @@ def main():
 
         if should_render:
             console.print(f"[bold green]📺 Episode {episode} starting (VISUAL)...[/bold green]")
+            recorder = Recorder(f"videos/game_{episode:04}.mp4")
+
         else:
             console.print(f"[dim]Episode {episode} starting...[/dim]")
 
@@ -137,6 +192,9 @@ def main():
                 pause_text = font.render("PAUSED - Press P to continue", True, config.WHITE)
                 pause_rect = pause_text.get_rect(center=(config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2))
                 screen.blit(pause_text, pause_rect)
+                # Draw white border around the outer perimeter
+                border_width = 2
+                pygame.draw.rect(screen, config.WHITE, (0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT), border_width)
                 pygame.display.flip()
                 clock.tick(10)
                 continue
@@ -211,7 +269,7 @@ def main():
             if scorer:
                 if should_render:
                     # pause for 1 second to show the score
-                    pygame.time.delay(1000)
+                    pygame.time.delay(100)
                 if scorer == 'left':
                     score1 += 1
                     reward1 += config.REWARD_WIN
@@ -220,7 +278,6 @@ def main():
                     score2 += 1
                     reward1 += config.REWARD_LOSE
                     reward2 += config.REWARD_WIN
-
                 ball.reset(scored_left=(scorer == 'right'))
 
                 # End episode immediately if someone reached winning score
@@ -237,35 +294,6 @@ def main():
                         reward1 += config.REWARD_GAME_LOSE
                         reward2 += config.REWARD_GAME_WIN
                         total_wins_p2 += 1
-
-                    duration = time.time() - episode_start_time
-                    total_hits = hits_p1 + hits_p2
-                    total_swings = swings_p1 + swings_p2
-                    avg_reward_p1 = total_reward_p1 / step_count if step_count > 0 else 0
-                    avg_reward_p2 = total_reward_p2 / step_count if step_count > 0 else 0
-                    total_avg_reward = avg_reward_p1 + avg_reward_p2
-                    # calculate and save the cumulative total average reward
-                    cumulative_total_avg_reward = (cumulative_total_avg_reward * (episode - 1) + total_avg_reward) / episode
-
-                    # Create episode summary table
-                    summary_table = Table(show_header=False, box=None, padding=(0, 1))
-                    summary_table.add_column("", style="cyan")
-                    summary_table.add_column("", style="white")
-
-                    summary_table.add_row("🥊 Swing %", f"{total_swings / (step_count * 2) * 100:.3f}%")
-                    summary_table.add_row("🏓 Hits / Swing", f"{total_hits / total_swings:.3f}" if total_swings > 0 else "0.000")
-                    summary_table.add_row("📈 P1%  CTR", f"{avg_reward_p1 / cumulative_total_avg_reward:.3f}" if cumulative_total_avg_reward > 0 else "0.000")
-                    summary_table.add_row(
-                        f"📈 P2% of {cumulative_total_avg_reward:.3f}",
-                        (
-                            f"{avg_reward_p2 / cumulative_total_avg_reward:.3f}"
-                            if cumulative_total_avg_reward > 0
-                            else "0.000"
-                        ),
-                    )
-                    summary_table.add_row("🏆 Total Wins", f"P1: {total_wins_p1} | P2: {total_wins_p2}")
-
-                    console.print(summary_table)
 
             # Accumulate total rewards for this episode
             total_reward_p1 += reward1
@@ -318,79 +346,98 @@ def main():
                 screen.blit(step_text, (10, info_y))
                 info_y += 22
 
-
                 # Calculate and display vertical ratio (same logic as in ball.py)
                 abs_vx = abs(ball.vx)
                 abs_vy = abs(ball.vy)
                 vertical_ratio = abs_vy / abs_vx if abs_vx > 0 else float('inf')
                 ratio_color = config.RED if vertical_ratio > config.BALL_VERTICAL_RATIO_THRESHOLD else config.WHITE
-                ratio_text = small_font.render(f"Vertical Ratio: {vertical_ratio:.2f} (threshold: {config.BALL_VERTICAL_RATIO_THRESHOLD})", True, ratio_color)
-                screen.blit(ratio_text, (10, info_y))
-                info_y += 22
+                if vertical_ratio > config.BALL_VERTICAL_RATIO_THRESHOLD:
+                    ratio_text = small_font.render(f"Vertical Ratio: {vertical_ratio:.2f} (threshold: {config.BALL_VERTICAL_RATIO_THRESHOLD})", True, ratio_color)
+                    screen.blit(ratio_text, (10, info_y))
+                    info_y += 22
 
                 # Show anti-stall status (same logic as in ball.py increase_speed method)
                 is_too_vertical = (abs_vx < config.BALL_MIN_X_VELOCITY) or \
                                  (abs_vx > 0 and abs_vy / abs_vx > config.BALL_VERTICAL_RATIO_THRESHOLD)
                 stall_status = "ACTIVE" if is_too_vertical else "INACTIVE"
                 stall_color = config.GREEN if is_too_vertical else config.GRAY
-                stall_text = small_font.render(f"Anti-stall: {stall_status} (min_vx: {config.BALL_MIN_X_VELOCITY})", True, stall_color)
-                screen.blit(stall_text, (10, info_y))
-                info_y += 22
+                if is_too_vertical:
+                    stall_text = small_font.render(f"Anti-stall: {stall_status} (min_vx: {config.BALL_MIN_X_VELOCITY})", True, stall_color)
+                    screen.blit(stall_text, (10, info_y))
+                    info_y += 22
 
                 eps_text = small_font.render(f"Epsilon: {agent1.epsilon:.3f}", True, config.WHITE)
                 screen.blit(eps_text, (10, info_y))
                 info_y += 20
 
-
-
                 wins_text = small_font.render(f"Wins: P1={total_wins_p1}, P2={total_wins_p2}", True, config.WHITE)
                 screen.blit(wins_text, (10, info_y))
 
-                # Action display
-                action_names = ["STAY", "UP", "DOWN", "SWING"]
-                # action1_text = small_font.render(f"P1: {action_names[action1]}", True, config.WHITE)
-                # screen.blit(action1_text, (10, config.SCREEN_HEIGHT - 60))
-
-                # action2_text = small_font.render(f"P2: {action_names[action2]}", True, config.WHITE)
-                # screen.blit(action2_text, (10, config.SCREEN_HEIGHT - 40))
-                
-
+                # Draw white border around the outer perimeter
+                border_width = 2
+                pygame.draw.rect(screen, config.WHITE, (0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT), border_width)
 
                 pygame.display.flip()
                 clock.tick(config.FPS)  # 60 FPS
+                if recorder:
+                    recorder.capture(screen)
+        # Check if episode should end due to timeout
+        if step_count >= config.MAX_STEPS_PER_EPISODE:
+            episode_over = True
 
-        # Check if episode ended due to timeout (no winner)
-        if step_count >= config.MAX_STEPS_PER_EPISODE and not episode_over:
-            # Both players get penalty for timeout
-            timeout_reward1 = config.REWARD_GAME_LOSE
-            timeout_reward2 = config.REWARD_GAME_LOSE
-            
-            # Accumulate timeout penalties
-            total_reward_p1 += timeout_reward1
-            total_reward_p2 += timeout_reward2
-            
-            # Create final experience for timeout
-            final_next_state = np.array([
-                ball.rect.centerx / config.SCREEN_WIDTH,
-                ball.rect.centery / config.SCREEN_HEIGHT,
-                np.clip(ball.vx / config.BALL_MAX_SPEED, -1, 1),
-                np.clip(ball.vy / config.BALL_MAX_SPEED, -1, 1),
-                paddle1.rect.centery / config.SCREEN_HEIGHT,
-                paddle2.rect.centery / config.SCREEN_HEIGHT,
-                paddle1.swing_timer / config.PADDLE_SWING_DURATION if paddle1.swing_timer > 0 else 0,
-                paddle2.swing_timer / config.PADDLE_SWING_DURATION if paddle2.swing_timer > 0 else 0
-            ], dtype=np.float32)
-            
-            # Store timeout experiences
-            agent1.remember(state, action1, timeout_reward1, final_next_state, True)  # done=True for timeout
-            agent2.remember(state, action2, timeout_reward2, final_next_state, True)  # done=True for timeout
-            
-            # Learn from timeout experience
-            agent1.learn()
-            agent2.learn()
-            
+        # Handle episode ending (either by win/loss or timeout)
+        if episode_over:
+            # Handle timeout scenario
+            if step_count >= config.MAX_STEPS_PER_EPISODE and score1 < config.WINNING_SCORE and score2 < config.WINNING_SCORE:
+                # Both players get penalty for timeout
+                timeout_reward1 = config.REWARD_GAME_LOSE
+                timeout_reward2 = config.REWARD_GAME_LOSE
+
+                # Accumulate timeout penalties
+                total_reward_p1 += timeout_reward1
+                total_reward_p2 += timeout_reward2
+
+                # Create final experience for timeout
+                final_next_state = np.array([
+                    ball.rect.centerx / config.SCREEN_WIDTH,
+                    ball.rect.centery / config.SCREEN_HEIGHT,
+                    np.clip(ball.vx / config.BALL_MAX_SPEED, -1, 1),
+                    np.clip(ball.vy / config.BALL_MAX_SPEED, -1, 1),
+                    paddle1.rect.centery / config.SCREEN_HEIGHT,
+                    paddle2.rect.centery / config.SCREEN_HEIGHT,
+                    paddle1.swing_timer / config.PADDLE_SWING_DURATION if paddle1.swing_timer > 0 else 0,
+                    paddle2.swing_timer / config.PADDLE_SWING_DURATION if paddle2.swing_timer > 0 else 0
+                ], dtype=np.float32)
+
+                # Store timeout experiences
+                agent1.remember(state, action1, timeout_reward1, final_next_state, True)  # done=True for timeout
+                agent2.remember(state, action2, timeout_reward2, final_next_state, True)  # done=True for timeout
+
+                # Learn from timeout experience
+                agent1.learn()
+                agent2.learn()
+
+                episode_result = "TIMEOUT"
+                if should_render:
+                    console.print(f"[bold red]⏰ Episode {episode} timed out after {step_count} steps - both players penalized[/bold red]")
+            else:
+                episode_result = None
+
+            # Calculate cumulative average reward for episode summary
+            avg_reward_p1 = total_reward_p1 / step_count if step_count > 0 else 0
+            avg_reward_p2 = total_reward_p2 / step_count if step_count > 0 else 0
+            total_avg_reward = avg_reward_p1 + avg_reward_p2
+            cumulative_total_avg_reward = (cumulative_total_avg_reward * (episode - 1) + total_avg_reward) / episode
             if should_render:
-                console.print(f"[bold red]⏰ Episode {episode} timed out after {step_count} steps - both players penalized[/bold red]")
+                if recorder:
+                    recorder.close()
+            # Create and print episode summary table for all episode endings
+            summary_table = create_episode_summary_table(
+                episode, step_count, hits_p1, hits_p2, swings_p1, swings_p2,
+                total_reward_p1, total_reward_p2, total_wins_p1, total_wins_p2,
+                cumulative_total_avg_reward, episode_result
+            )
+            console.print(summary_table)
 
         # Post-episode processing
         agent1.decay_epsilon()
@@ -407,6 +454,16 @@ def main():
             agent1.update_target_network()
             agent2.update_target_network()
             console.print(f"[bold yellow]🔄 Episode {episode}: Target networks updated[/bold yellow]")
+
+
+
+
+
+
+
+
+
+
 
     # Training completion summary
     final_table = Table(title="🎯 Training Completed!")
