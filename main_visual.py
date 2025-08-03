@@ -267,9 +267,7 @@ def main():
             scorer = ball.check_score()
             round_done = False
             if scorer:
-                if should_render:
-                    # pause for 1 second to show the score
-                    pygame.time.delay(100)
+                # Update score and rewards first
                 if scorer == 'left':
                     score1 += 1
                     reward1 += config.REWARD_WIN
@@ -278,9 +276,38 @@ def main():
                     score2 += 1
                     reward1 += config.REWARD_LOSE
                     reward2 += config.REWARD_WIN
+
+                if should_render:
+                    # Visual indicator: flash the screen white
+                    screen.fill(config.WHITE)
+                    # Draw scores over the flash
+                    score_text = font.render(f"{score1}  -  {score2}", True, config.BLACK)
+                    screen.blit(score_text, (config.SCREEN_WIDTH // 2 - score_text.get_width() // 2, 30))
+                    pygame.display.flip()
+                    pygame.time.delay(100) # Flash duration
+
+                # Reset ball for the next round
                 ball.reset(scored_left=(scorer == 'right'))
 
-                # End episode immediately if someone reached winning score
+                if should_render:
+                    # Redraw the scene with the ball in the center
+                    screen.fill(config.BLACK)
+                    paddle1.draw(screen)
+                    paddle2.draw(screen)
+                    ball.draw(screen)
+                    pygame.draw.aaline(screen, config.GRAY,
+                                       (config.SCREEN_WIDTH // 2, 0),
+                                       (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT))
+                    score_text = font.render(f"{score1}  -  {score2}", True, config.WHITE)
+                    screen.blit(score_text, (config.SCREEN_WIDTH // 2 - score_text.get_width() // 2, 30))
+                    border_width = 2
+                    pygame.draw.rect(screen, config.WHITE, (0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT), border_width)
+                    pygame.display.flip()
+
+                    # Pause for 0.5 seconds before the round starts
+                    pygame.time.delay(500)
+
+                # End episode if a player reached the winning score
                 if score1 >= config.WINNING_SCORE or score2 >= config.WINNING_SCORE:
                     episode_over = True
                     round_done = True
