@@ -10,6 +10,8 @@ import imageio
 import pygame
 import numpy as np
 import os
+import math
+import random
 
 
 import config
@@ -30,6 +32,117 @@ class Recorder:
 
     def close(self):
         self.writer.close()
+
+
+class ScoreEffect:
+    """Visual effect system for when someone scores"""
+    def __init__(self):
+        self.active = False
+        self.effect_timer = 0.0
+        self.effect_duration = 1.0  # 1 second effect
+        self.flash_timer = 0.0
+        self.particles = []
+        self.scoring_side = None
+        
+    def trigger_score_effect(self, scoring_side):
+        """Trigger the visual effect when someone scores"""
+        self.active = True
+        self.effect_timer = 0.0
+        self.flash_timer = 0.0
+        self.scoring_side = scoring_side
+        self.particles = []
+        
+        # Create particles for the effect
+        if scoring_side == 'left':
+            # Particles from right wall (where ball hit)
+            wall_x = config.SCREEN_WIDTH
+            color = config.BLUE
+        else:
+            # Particles from left wall (where ball hit)
+            wall_x = 0
+            color = config.RED
+            
+        # Create explosion particles
+        for _ in range(20):
+            particle = {
+                'x': wall_x,
+                'y': random.randint(100, config.SCREEN_HEIGHT - 100),
+                'vx': random.uniform(-200, 200) if scoring_side == 'left' else random.uniform(-200, 200),
+                'vy': random.uniform(-150, 150),
+                'life': 1.0,
+                'color': color,
+                'size': random.randint(3, 8)
+            }
+            self.particles.append(particle)
+    
+    def update(self, dt):
+        """Update the visual effect"""
+        if not self.active:
+            return
+            
+        self.effect_timer += dt
+        self.flash_timer += dt
+        
+        # Update particles
+        for particle in self.particles[:]:
+            particle['x'] += particle['vx'] * dt
+            particle['y'] += particle['vy'] * dt
+            particle['life'] -= dt / self.effect_duration
+            particle['vy'] += 300 * dt  # Gravity effect
+            
+            if particle['life'] <= 0:
+                self.particles.remove(particle)
+        
+        # End effect when timer expires
+        if self.effect_timer >= self.effect_duration:
+            self.active = False
+            self.particles = []
+    
+    def draw(self, screen):
+        """Draw the visual effect"""
+        if not self.active:
+            return
+            
+        # Screen flash effect
+        flash_intensity = max(0, 1.0 - (self.flash_timer / 0.3))  # Flash for 0.3 seconds
+        if flash_intensity > 0:
+            flash_alpha = int(flash_intensity * 100)
+            flash_surface = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
+            if self.scoring_side == 'left':
+                flash_surface.fill((0, 100, 255))  # Blue flash for left player score
+            else:
+                flash_surface.fill((255, 100, 0))  # Orange flash for right player score
+            flash_surface.set_alpha(flash_alpha)
+            screen.blit(flash_surface, (0, 0))
+        
+        # Draw particles
+        for particle in self.particles:
+            if particle['life'] > 0:
+                alpha = int(particle['life'] * 255)
+                size = int(particle['size'] * particle['life'])
+                if size > 0:
+                    # Create a surface for the particle with alpha
+                    particle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    color_with_alpha = (*particle['color'], alpha)
+                    pygame.draw.circle(particle_surface, color_with_alpha, (size, size), size)
+                    screen.blit(particle_surface, (int(particle['x'] - size), int(particle['y'] - size)))
+        
+        # Draw score text effect
+        font = pygame.font.Font(None, 72)
+        text_alpha = max(0, 1.0 - (self.effect_timer / 0.8))  # Text fades over 0.8 seconds
+        if text_alpha > 0:
+            if self.scoring_side == 'left':
+                score_text = font.render("PLAYER 1 SCORES!", True, config.BLUE)
+            else:
+                score_text = font.render("PLAYER 2 SCORES!", True, config.RED)
+            
+            # Apply alpha to text
+            text_surface = pygame.Surface(score_text.get_size(), pygame.SRCALPHA)
+            text_surface.blit(score_text, (0, 0))
+            text_surface.set_alpha(int(text_alpha * 255))
+            
+            text_rect = text_surface.get_rect(center=(config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2 - 50))
+            screen.blit(text_surface, text_rect)
 
 
 def create_episode_summary_table(episode, step_count, hits_p1, hits_p2, swings_p1, swings_p2, 
@@ -117,6 +230,9 @@ def main():
     total_wins_p2 = 0
     running = True
     paused = False
+    
+    # Create score effect system
+    score_effect = ScoreEffect()
 
     # Create training info table
     training_table = Table(title="🏓 Training Configuration")
@@ -165,6 +281,10 @@ def main():
         total_reward_p1 = 0.0
         total_reward_p2 = 0.0
         cumulative_total_avg_reward = 0.0  # For calculating cumulative average reward
+        
+        # Score effect and pause timing
+        post_score_pause_timer = 0.0
+        is_post_score_pause = False
         while not episode_over and running and step_count < config.MAX_STEPS_PER_EPISODE:
             step_count += 1
 
@@ -199,6 +319,45 @@ def main():
                 pygame.draw.rect(screen, config.WHITE, (0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT), border_width)
                 pygame.display.flip()
                 clock.tick(10)
+                continue
+            
+            # Handle post-score pause
+            if is_post_score_pause:
+                post_score_pause_timer += dt
+                if post_score_pause_timer >= 0.5:  # 0.5 second pause
+                    is_post_score_pause = False
+                    post_score_pause_timer = 0.0
+                
+                # Continue rendering during pause but skip game logic
+                if should_render:
+                    # Update and render score effects during pause
+                    score_effect.update(dt)
+                    
+                    screen.fill(config.BLACK)
+                    paddle1.draw(screen)
+                    paddle2.draw(screen)
+                    ball.draw(screen)
+                    
+                    # Draw center line
+                    pygame.draw.aaline(screen, config.GRAY,
+                                       (config.SCREEN_WIDTH // 2, 0),
+                                       (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT))
+                    
+                    # Draw scores
+                    score_text = font.render(f"{score1}  -  {score2}", True, config.WHITE)
+                    screen.blit(score_text, (config.SCREEN_WIDTH // 2 - score_text.get_width() // 2, 30))
+                    
+                    # Draw score effects
+                    score_effect.draw(screen)
+                    
+                    # Draw white border
+                    border_width = 2
+                    pygame.draw.rect(screen, config.WHITE, (0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT), border_width)
+                    
+                    pygame.display.flip()
+                    clock.tick(config.FPS)
+                    if recorder:
+                        recorder.capture(screen)
                 continue
 
             # Get normalized game state
@@ -269,9 +428,10 @@ def main():
             scorer = ball.check_score()
             round_done = False
             if scorer:
+                # Trigger visual effects if rendering
                 if should_render:
-                    # pause for 1 second to show the score
-                    pygame.time.delay(100)
+                    score_effect.trigger_score_effect(scorer)
+                
                 if scorer == 'left':
                     score1 += 1
                     reward1 += config.REWARD_WIN
@@ -280,7 +440,12 @@ def main():
                     score2 += 1
                     reward1 += config.REWARD_LOSE
                     reward2 += config.REWARD_WIN
+                
                 ball.reset(scored_left=(scorer == 'right'))
+                
+                # Start post-score pause
+                is_post_score_pause = True
+                post_score_pause_timer = 0.0
 
                 # End episode immediately if someone reached winning score
                 if score1 >= config.WINNING_SCORE or score2 >= config.WINNING_SCORE:
@@ -322,6 +487,9 @@ def main():
 
             # Render the game only if this episode should be displayed
             if should_render:
+                # Update score effects
+                score_effect.update(dt)
+                
                 screen.fill(config.BLACK)
 
                 # Draw game elements
@@ -374,6 +542,9 @@ def main():
 
                 wins_text = small_font.render(f"Wins: P1={total_wins_p1}, P2={total_wins_p2}", True, config.WHITE)
                 screen.blit(wins_text, (10, info_y))
+
+                # Draw score effects (particles, flashes, text)
+                score_effect.draw(screen)
 
                 # Draw white border around the outer perimeter
                 border_width = 2
