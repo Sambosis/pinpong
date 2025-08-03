@@ -54,6 +54,8 @@ def create_episode_summary_table(episode, step_count, hits_p1, hits_p2, swings_p
             summary_table.add_row("⏰ Episode Result", "[red]TIMEOUT - No Winner[/red]")
         else:
             summary_table.add_row("🏆 Episode Result", episode_result)
+    summary_table.add_row("🏓 Step Count", f"{step_count}")
+    summary_table.add_row("🏓 Hits", f"{total_hits}")
 
     summary_table.add_row("🥊 Swing %", f"{total_swings / (step_count * 2) * 100:.3f}%")
     summary_table.add_row("🏓 Hits", f"{total_hits}")
