@@ -14,7 +14,7 @@ SCREEN_HEIGHT = 608
 WIN_WIDTH = SCREEN_WIDTH  # Alias for compatibilityWIN_HEIGHT = SCREEN_HEIGHT  # Alias for compatibility
 GAME_CAPTION = "RL Flipper Pong"
 FPS =90  # Frames per second for rendering
-WINNING_SCORE = 5  # Score needed to win a game
+WINNING_SCORE = 6  # Score needed to win a game
 
 # ---------------------------- #
 # Colors
@@ -59,7 +59,7 @@ BALL_INITIAL_SPEED_X = 300.0
 BALL_INITIAL_SPEED_Y = 200.0
 BALL_MAX_SPEED = 900.0  # Maximum speed magnitude for the ball
 BALL_SPEED_INCREASE_FACTOR = 1.51  # Factor by which speed increases on paddle hit
-BALL_SPEED_INITIAL = 650.0  # Initial ball speed (fast enough to reach paddles)
+BALL_SPEED_INITIAL = 550.0  # Initial ball speed (fast enough to reach paddles)
 BALL_SPEED_SWING = 900.0   # Ball speed after swing hit
 MAX_BOUNCE_ANGLE = 42     # Maximum bounce angle in degrees
 
@@ -84,9 +84,9 @@ GAMMA = 0.99               # Discount factor for future rewards
 LEARNING_RATE = 0.00005     # Learning rate for the Adam optimizer
 
 # Epsilon-Greedy Policy for Exploration
-EPSILON_START = 1.0      # Initial exploration rate
+EPSILON_START = 0.49      # Initial exploration rate
 EPSILON_END = 0.01         # Minimum exploration rate
-EPSILON_DECAY = 0.999        # Decay rate for epsilon per episode
+EPSILON_DECAY = 0.99        # Decay rate for epsilon per episode
 
 # Target Network Update
 TARGET_UPDATE_FREQUENCY = 10 # Update target network every N episodes
@@ -94,24 +94,25 @@ TARGET_UPDATE_FREQUENCY = 10 # Update target network every N episodes
 # ---------------------------- #
 # Reward Structure
 # ---------------------------- #
-REWARD_WIN = 8.0          # Reward for scoring a point
-REWARD_LOSE = -1.0        # Reward for conceding a point
-REWARD_HIT = 0.05          # Small positive reward for hitting the ball
-REWARD_SWING = -0.01      # Small penalty for swinging paddle (discourages unnecessary swings)
-REWARD_GAME_WIN = 12.0     # Large reward for winning the entire game (reaching WINNING_SCORE)
-REWARD_GAME_LOSE = -12.0   # Large penalty for losing the entire game
-
+REWARD_SCORE = 20.0          # Reward for scoring a point
+REWARD_MISS = -4.0        # Reward for conceding a point
+REWARD_HIT = 3.0          # Small positive reward for hitting the ball
+REWARD_SWING = -0.9      # Small penalty for swinging paddle (discourages unnecessary swings)
+REWARD_GAME_WIN = 40.0     # Large reward for winning the entire game (reaching WINNING_SCORE)
+REWARD_GAME_LOSE = -5.0   # Large penalty for losing the entire game
+REWARD_WIN = REWARD_SCORE  # Alias for winning reward
+REWARD_LOSE = REWARD_MISS  # Alias for losing penalty
 # ---------------------------- #
 # Training & Model Settings
 # ---------------------------- #
 NUM_EPISODES = 12000       # Total number of games to play for training
 MAX_STEPS_PER_EPISODE = 1200  # Maximum steps per episode (60 seconds at 30 FPS)
-DISPLAY_EVERY = 100         # Render every Nth game
+DISPLAY_EVERY = 5         # Render every Nth game
 SAVE_MODEL_EVERY = 100    # Save trained models every N episodes
 MODEL_PATH = "models/"    # Directory to save/load models
-LOAD_MODEL = True        # Set to True to load a pre-trained model
-MODEL_TO_LOAD_P1 = "models/agent1_episode_80a00.pth" # Example path
-MODEL_TO_LOAD_P2 = "models/agent2_episode_800a0.pth" # Example path
+LOAD_MODEL = False        # Set to True to load a pre-trained model
+MODEL_TO_LOAD_P1 = "models/agent1_episode_3600.pth" # Example path
+MODEL_TO_LOAD_P2 = "models/agent2_episode_3600.pth" # Example path
 # V-trace / Actor-Critic Settings
 
 # ENTROPY_BETA: Coefficient for the entropy bonus in the policy loss.
