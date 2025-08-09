@@ -12,6 +12,7 @@ import numpy as np
 import os
 import math
 import random
+from recorder import Recorder
 
 
 import config
@@ -21,17 +22,7 @@ from agent import Agent
 from vtrace_agent import VTraceAgent
 
 
-class Recorder:
-    def __init__(self, path, fps=30):
-        self.writer = imageio.get_writer(path, fps=(1/config.FIXED_TIMESTEP))
-
-    def capture(self, screen):
-        arr = pygame.surfarray.array3d(screen)
-        frame = np.transpose(arr, (1, 0, 2))  # Convert (W, H, C) -> (H, W, C)
-        self.writer.append_data(frame)
-
-    def close(self):
-        self.writer.close()
+# Recorder moved to recorder.py
 
 
 class ScoreEffect:
